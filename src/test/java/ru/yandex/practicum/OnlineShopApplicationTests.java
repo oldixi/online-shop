@@ -1,4 +1,4 @@
-package yandex.practicum.online_shop;
+package ru.yandex.practicum;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
