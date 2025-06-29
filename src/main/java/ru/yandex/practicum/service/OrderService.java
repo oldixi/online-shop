@@ -47,16 +47,17 @@ public class OrderService {
     @Transactional
     public Long buy() {
         CartDto cart = itemService.getCart();
+        log.info("Start buy: cart={}", cart);
         if (!cart.isEmpty()) {
             OrderDto orderDto = OrderDto.builder()
                     .totalSum(cart.getTotal())
                     .items(cart.getItems().values().stream().toList())
                     .build();
             Order order = orderRepository.save(orderMapper.toOrder(orderDto));
-            log.info("Processing buy: order={}", order);
+            log.trace("Processing buy: order={}", order);
             List<ItemInOrder> items = itemInOrderMapper.toItemInOrderList(cart.getItems().values().stream().toList());
             items.forEach(item -> item.setOrder(order));
-            log.info("Processing buy: items={}", items);
+            log.trace("Processing buy: items={}", items);
             itemInOrderService.saveItemsInOrder(items);
             itemService.clearCart();
             return order.getId();
@@ -78,10 +79,10 @@ public class OrderService {
                         .build(), orderId);
         if (!itemsDetails.isEmpty()) {
             totalSum = itemsDetails.getFirst().getTotalSum();
-            log.info("Processing getOrderById: itemsDetails={}, items={}", itemsDetails, items);
+            log.trace("Processing getOrderById: itemsDetails={}, items={}", itemsDetails, items);
             items = itemInOrderMapper.toItemDtoList(itemsDetails);
         }
-        log.info("Processing getOrderById: items={}", items);
+        log.trace("Processing getOrderById: items={}", items);
         return OrderDto.builder()
                  .id(orderId)
                  .items(items)
@@ -109,7 +110,7 @@ public class OrderService {
                         .filter(item -> orderId.equals(item.getOrderId()))
                         .toList()))
                 .build()).toList();
-        log.info("Processing getOrderById: orders={}", orders);
+        log.trace("Processing getOrderById: orders={}", orders);
         return orders;
     }
 }

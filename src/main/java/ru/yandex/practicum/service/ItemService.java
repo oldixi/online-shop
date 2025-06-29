@@ -9,7 +9,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import ru.yandex.practicum.enumiration.EChartAction;
+import ru.yandex.practicum.enumiration.ECartAction;
 import ru.yandex.practicum.enumiration.ESort;
 import ru.yandex.practicum.mapper.ItemMapper;
 import ru.yandex.practicum.model.dto.*;
@@ -36,7 +36,7 @@ public class ItemService {
     int itemsRowCount;
 
     public ItemsWithPagingDto getItems(String search, String sort, int pageNumber, int pageSize) {
-        Pageable page = switch(ESort.valueOf(sort)) {
+        Pageable page = switch(ESort.valueOf(sort.toUpperCase())) {
             case NO -> PageRequest.of(pageNumber - 1, pageSize);
             case ALPHA -> PageRequest.of(pageNumber - 1, pageSize, Sort.by(Sort.Direction.ASC, "title"));
             case PRICE -> PageRequest.of(pageNumber - 1, pageSize, Sort.by(Sort.Direction.ASC, "price"));
@@ -63,7 +63,7 @@ public class ItemService {
                 .values()
                 .stream()
                 .toList();
-        return new ItemsWithPagingDto(/*itemsRowDto*/itemsDtoPartitions, pagingParametersDto);
+        return new ItemsWithPagingDto(itemsDtoPartitions, pagingParametersDto);
     }
 
     @Transactional
@@ -82,13 +82,13 @@ public class ItemService {
     }
 
     public void actionWithItemInCart(Long itemId, String action) {
-        log.info("Start actionWithItemInCart: cart={}, itemId={}, action={}", cart, itemId, action);
+        log.debug("Start actionWithItemInCart: cart={}, itemId={}, action={}", cart, itemId, action);
         Map<Long, ItemDto> itemsInCart = cart.getItems();
         ItemDto itemInCart;
         if (itemsInCart.containsKey(itemId)) itemInCart = itemsInCart.get(itemId);
         else itemInCart = getItemDtoById(itemId);
 
-        switch (EChartAction.valueOf(action.toUpperCase())) {
+        switch (ECartAction.valueOf(action.toUpperCase())) {
             case PLUS -> itemInCart.setCount(itemInCart.getCount() + 1);
             case MINUS -> {
                 if (itemInCart.getCount() >= 1) itemInCart.setCount(itemInCart.getCount() - 1);
@@ -96,15 +96,15 @@ public class ItemService {
             case DELETE -> itemInCart.setCount(0);
         }
 
-        if (itemInCart.getCount() == 0) {
-            itemsInCart.remove(itemId);
-        } else itemsInCart.put(itemId, itemInCart);
+        log.trace("Process actionWithItemInCart: cart={}, itemInCart={}, itemsInCart={}", cart, itemInCart, itemsInCart);
+        if (itemInCart.getCount() == 0) itemsInCart.remove(itemId);
+        else itemsInCart.put(itemId, itemInCart);
 
         cart.setItems(itemsInCart);
         cart.setEmpty(itemsInCart.size() == 0);
         if (itemsInCart.size() > 0) cart.setTotal(cart.getTotal().add(itemInCart.getPrice()));
         else cart.setTotal(BigDecimal.valueOf(0));
-        log.info("Finish actionWithItemInCart: cart={}", cart);
+        log.trace("Finish actionWithItemInCart: cart={}", cart);
     }
 
     public void clearCart() {

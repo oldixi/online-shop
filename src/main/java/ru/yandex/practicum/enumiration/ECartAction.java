@@ -1,5 +1,5 @@
 package ru.yandex.practicum.enumiration;
 
-public enum EChartAction {
+public enum ECartAction {
     PLUS, MINUS, DELETE
 }

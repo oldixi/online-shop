@@ -1,7 +1,6 @@
 package ru.yandex.practicum.controller;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -13,9 +12,7 @@ import ru.yandex.practicum.service.ItemService;
 import ru.yandex.practicum.service.OrderService;
 
 @Controller
-//@RequestMapping("/online-shop")
 @RequiredArgsConstructor
-@Slf4j
 public class ShopController {
     private final ItemService itemService;
     private final OrderService orderService;
@@ -23,6 +20,7 @@ public class ShopController {
     /*
         а) GET "/" - редирект на "/main/items"
     */
+    @GetMapping("/")
     public String redirectItems() {
         return "redirect:/main/items";
     }
@@ -52,7 +50,6 @@ public class ShopController {
                            @RequestParam(defaultValue = "1", name = "pageNumber") int pageNumber,
                            @RequestParam(defaultValue = "10", name = "pageSize") int pageSize) {
         ItemsWithPagingDto items = itemService.getItems(search, sort, pageNumber, pageSize);
-        log.info("Finish getItems: items={}", items);
         model.addAttribute("items", items.getItems());
         model.addAttribute("search", search);
         model.addAttribute("sort", sort);
@@ -68,7 +65,6 @@ public class ShopController {
     @PostMapping("/main/items/{id}")
     public String changeItemCount(@PathVariable("id") Long id,
                                   @RequestParam(name = "action") String action) {
-        log.info("Start changeItemCount: id={}, action={}", id, action);
         itemService.actionWithItemInCart(id, action);
         return "redirect:/main/items";
     }
@@ -84,7 +80,6 @@ public class ShopController {
     @GetMapping("/cart/items")
     public String getChart(Model model) {
         CartDto cart = itemService.getCart();
-        log.info("Start getChart: cart={}", cart);
         model.addAttribute("items", cart.getItems().values());
         model.addAttribute("total", cart.getTotal());
         model.addAttribute("empty", cart.isEmpty());
@@ -99,7 +94,6 @@ public class ShopController {
     @PostMapping("/cart/items/{id}")
     public String changeItemCountInCart(@PathVariable("id") Long id,
                                         @RequestParam(name = "action") String action) {
-        log.info("Start changeItemCount: id={}, action={}", id, action);
         itemService.actionWithItemInCart(id, action);
         return "redirect:/cart/items";
     }
@@ -124,7 +118,6 @@ public class ShopController {
     @PostMapping("/items/{id}")
     public String changeItemsCount(@PathVariable("id") Long id,
                                    @RequestParam(name = "action") String action) {
-        log.info("Start changeItemsCount: id={}, action={}", id, action);
         itemService.actionWithItemInCart(id, action);
         return "redirect:/items/" + id;
     }
@@ -175,8 +168,8 @@ public class ShopController {
 
 
     /*
-    GET "/items/image/{id}" -эндпоинт, возвращающий набор байт картинки поста
-    Параметры: "id" - идентификатор поста
+        GET "/items/image/{id}" -эндпоинт, возвращающий набор байт картинки поста
+        Параметры: "id" - идентификатор поста
     */
     @GetMapping("/items/image/{id}")
     @ResponseBody
@@ -185,8 +178,8 @@ public class ShopController {
     }
 
     /*
-    GET "/items/add" - страница добавления товара
-    Возвращает: шаблон "add-item.html"
+        GET "/main/items/add" - страница добавления товара
+        Возвращает: шаблон "add-item.html"
     */
     @GetMapping("/main/items/add")
     public String addItemPage() {
@@ -194,19 +187,17 @@ public class ShopController {
     }
 
     /*
-    POST "/items" - добавление товара
-    Принимает: "multipart/form-data"
-    Параметры: "title" - название товара
-               "description" - текст товара
-               "image" - файл картинки товара (класс MultipartFile)
-               "price" - цена товара
-    Возвращает: редирект на созданный "/items/{id}"
+        POST "/main/items" - добавление товара
+        Принимает: "multipart/form-data"
+        Параметры:  "title" - название товара
+                    "description" - текст товара
+                    "image" - файл картинки товара (класс MultipartFile)
+                    "price" - цена товара
+        Возвращает: редирект на созданный "/items/{id}"
     */
     @PostMapping("/main/items")
     public String addItem(@ModelAttribute("item") ItemCreateDto item) {
-        log.info("Start addItem: item={}", item);
         ItemDto itemDto = itemService.saveItem(item);
-        log.info("Finish addItem: itemDto.id={}", itemDto);
         return "redirect:/items/" + itemDto.getId();
     }
 }

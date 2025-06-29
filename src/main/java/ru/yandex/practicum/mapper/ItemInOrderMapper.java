@@ -17,9 +17,11 @@ public class ItemInOrderMapper {
     private final ModelMapper mapper;
 
     public ItemInOrder toItemInOrder(ItemDto item) {
+        log.info("Start toItemInOrder: itemDto={}", item);
         ItemInOrder itemInOrder = mapper.map(item, ItemInOrder.class);
         itemInOrder.setId(null);
         itemInOrder.setItemId(item.getId());
+        log.info("Start toItemInOrder: itemInOrder={}", itemInOrder);
         return itemInOrder;
     }
 
