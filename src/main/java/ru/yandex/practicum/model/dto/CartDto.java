@@ -12,7 +12,10 @@ import java.util.Map;
 @NoArgsConstructor
 @EqualsAndHashCode
 public class CartDto {
+    @Builder.Default
     private Map<Long, ItemDto> items = new HashMap<>();
+    @Builder.Default
     private BigDecimal total = BigDecimal.valueOf(0);
+    @Builder.Default
     private boolean empty = true;
 }

@@ -15,5 +15,6 @@ public class ItemDto {
     private String description;
     private String imagePath;
     private int count;
+    @Builder.Default
     private BigDecimal price = BigDecimal.valueOf(0);
 }

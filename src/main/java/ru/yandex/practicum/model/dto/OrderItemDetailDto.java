@@ -16,8 +16,9 @@ public class OrderItemDetailDto {
     private String title;
     private String description;
     private String imagePath;
-    @EqualsAndHashCode.Exclude
     private int count;
+    @Builder.Default
     private BigDecimal price = BigDecimal.valueOf(0);
+    @Builder.Default
     private BigDecimal totalSum = BigDecimal.valueOf(0);
 }

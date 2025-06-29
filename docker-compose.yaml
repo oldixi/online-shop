@@ -1,21 +1,21 @@
 services:
-  shop-online:
-    build: ./stats-server/server
+  online-shop:
+    build: ./
     ports:
       - "8084:8084"
     depends_on:
-      - shop-db
+      - db
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://shop-db:5434/shop
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/shop
       - SPRING_DATASOURCE_USERNAME=shop
       - SPRING_DATASOURCE_PASSWORD=shop
 
-  shop-db:
+  db:
     image: postgres:17-alpine
     volumes:
       - /var/lib/postgresql/data/
     ports:
-      - "6541:5434"
+      - "15434:5432"
     environment:
       - POSTGRES_DB=shop
       - POSTGRES_USER=shop

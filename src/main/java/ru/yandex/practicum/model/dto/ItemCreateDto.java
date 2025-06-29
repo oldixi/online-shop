@@ -15,5 +15,6 @@ public class ItemCreateDto {
     private String title;
     private String description;
     private MultipartFile image;
+    @Builder.Default
     private BigDecimal price = BigDecimal.valueOf(0);
 }

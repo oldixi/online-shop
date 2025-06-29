@@ -59,3 +59,10 @@
 ### ER diagram
 
 ![shop_diagram](shop.png)
+
+## _Запуск приложения_
+Приложение можно запустить локально:<br>
+* локально<br>
+_java -jar build/libs/online-shop-0.0.1-SNAPSHOT.jar_
+* в Docker-контейнере<br>
+_docker-compose up -d --build_
