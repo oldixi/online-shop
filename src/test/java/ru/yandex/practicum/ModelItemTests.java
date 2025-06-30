@@ -14,6 +14,7 @@ import ru.yandex.practicum.model.dto.ItemDto;
 import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.entity.Item;
 import ru.yandex.practicum.repository.ItemRepository;
+import ru.yandex.practicum.service.CartService;
 import ru.yandex.practicum.service.ItemService;
 
 import java.io.File;
@@ -35,7 +36,7 @@ public class ModelItemTests {
     @Mock
     private ItemMapper itemMapper;
     @Mock
-    private CartDto cart;
+    private CartService cartService;
 
     @InjectMocks
     private ItemService itemService;
@@ -124,7 +125,7 @@ public class ModelItemTests {
 
         when(itemRepository.findById(any(Long.class))).thenReturn(Optional.of(item));
         when(itemMapper.toDto(any(Item.class))).thenReturn(itemDto);
-        when(cart.getItems()).thenReturn(new HashMap<>());
+        when(cartService.getItemsInCart()).thenReturn(new HashMap<>());
         ItemDto itemRes = itemService.getItemDtoById(1L);
         assertThat(itemRes).isEqualTo(itemDto);
     }

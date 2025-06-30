@@ -11,6 +11,7 @@ import ru.yandex.practicum.model.dto.*;
 import ru.yandex.practicum.model.entity.Item;
 import ru.yandex.practicum.repository.ItemRepository;
 import ru.yandex.practicum.repository.OrderRepository;
+import ru.yandex.practicum.service.CartService;
 import ru.yandex.practicum.service.ItemService;
 import ru.yandex.practicum.service.OrderService;
 
@@ -30,6 +31,8 @@ public class IntegrationTests extends OnlineShopApplicationTests {
     private OrderService orderService;
     @Autowired
     private ItemService itemService;
+    @Autowired
+    private CartService cartService;
     @Autowired
     private OrderRepository orderRepository;
     @Autowired
@@ -75,7 +78,7 @@ public class IntegrationTests extends OnlineShopApplicationTests {
 
     @Test
     void testGetItemsInCart() throws Exception {
-        CartDto cartItems = itemService.getCart();
+        CartDto cartItems = cartService.getCart();
         assertArrayEquals(cart.getItems().keySet().toArray(), cartItems.getItems().keySet().toArray());
         assertArrayEquals(cart.getItems().values().toArray(), cartItems.getItems().values().toArray());
     }
@@ -182,9 +185,9 @@ public class IntegrationTests extends OnlineShopApplicationTests {
     @Test
     void testClearCart() throws Exception {
         addItemInCart();
-        assertFalse(itemService.getCart().isEmpty());
-        itemService.clearCart();
-        assertTrue(itemService.getCart().isEmpty());
+        assertFalse(cartService.getCart().isEmpty());
+        cartService.clearCart();
+        assertTrue(cartService.getCart().isEmpty());
 
         addItemInCart();
     }
