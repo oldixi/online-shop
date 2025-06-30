@@ -26,7 +26,7 @@ import java.util.List;
 public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderMapper orderMapper;
-    private final ItemService itemService;
+    private final CartService cartService;
     private final ItemInOrderService itemInOrderService;
     private final ItemInOrderMapper itemInOrderMapper;
     private final JdbcTemplate jdbcTemplate;
@@ -46,20 +46,20 @@ public class OrderService {
 
     @Transactional
     public Long buy() {
-        CartDto cart = itemService.getCart();
-        log.info("Start buy: cart={}", cart);
-        if (!cart.isEmpty()) {
+        CartDto cartCopy = cartService.getCart();
+        log.info("Start buy: cartCopy={}", cartCopy);
+        if (!cartCopy.isEmpty()) {
             OrderDto orderDto = OrderDto.builder()
-                    .totalSum(cart.getTotal())
-                    .items(cart.getItems().values().stream().toList())
+                    .totalSum(cartCopy.getTotal())
+                    .items(cartCopy.getItems().values().stream().toList())
                     .build();
             Order order = orderRepository.save(orderMapper.toOrder(orderDto));
             log.trace("Processing buy: order={}", order);
-            List<ItemInOrder> items = itemInOrderMapper.toItemInOrderList(cart.getItems().values().stream().toList());
+            List<ItemInOrder> items = itemInOrderMapper.toItemInOrderList(cartCopy.getItems().values().stream().toList());
             items.forEach(item -> item.setOrder(order));
             log.trace("Processing buy: items={}", items);
             itemInOrderService.saveItemsInOrder(items);
-            itemService.clearCart();
+            cartService.clearCart();
             return order.getId();
         } else return 0L;
     }

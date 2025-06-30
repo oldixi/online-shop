@@ -16,8 +16,6 @@ import ru.yandex.practicum.model.dto.*;
 import ru.yandex.practicum.model.entity.Item;
 import ru.yandex.practicum.repository.ItemRepository;
 
-import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -30,7 +28,7 @@ import java.util.stream.Collectors;
 public class ItemService {
     private final ItemRepository itemRepository;
     private final ItemMapper itemMapper;
-    private final CartDto cart;
+    private final CartService cartService;
 
     @Value("${shop.items.row:5}")
     int itemsRowCount;
@@ -48,7 +46,7 @@ public class ItemService {
         else
             items = itemRepository.findAll(page);
         List<ItemDto> itemsDto = itemMapper.toListDto(items);
-        itemsDto.forEach(item -> item.setCount(getItemCountInCart(item.getId())));
+        itemsDto.forEach(item -> item.setCount(cartService.getItemCountInCart(item.getId())));
 
         PagingParametersDto pagingParametersDto = PagingParametersDto.builder()
                 .pageNumber(pageNumber)
@@ -73,7 +71,7 @@ public class ItemService {
 
     public ItemDto getItemDtoById(Long id) {
         ItemDto item = itemMapper.toDto(itemRepository.findById(id).orElse(new Item()));
-        item.setCount(getItemCountInCart(id));
+        item.setCount(cartService.getItemCountInCart(id));
         return item;
     }
 
@@ -82,8 +80,9 @@ public class ItemService {
     }
 
     public void actionWithItemInCart(Long itemId, String action) {
-        log.debug("Start actionWithItemInCart: cart={}, itemId={}, action={}", cart, itemId, action);
-        Map<Long, ItemDto> itemsInCart = cart.getItems();
+        log.debug("Start actionWithItemInCart: itemId={}, action={}", itemId, action);
+        Map<Long, ItemDto> itemsInCart = cartService.getItemsInCart();
+        log.trace("Processing actionWithItemInCart: itemsInCart={}", itemsInCart);
         ItemDto itemInCart;
         if (itemsInCart.containsKey(itemId)) itemInCart = itemsInCart.get(itemId);
         else itemInCart = getItemDtoById(itemId);
@@ -96,29 +95,10 @@ public class ItemService {
             case DELETE -> itemInCart.setCount(0);
         }
 
-        log.trace("Process actionWithItemInCart: cart={}, itemInCart={}, itemsInCart={}", cart, itemInCart, itemsInCart);
+        log.trace("Process actionWithItemInCart, itemInCart={}, itemsInCart={}", itemInCart, itemsInCart);
         if (itemInCart.getCount() == 0) itemsInCart.remove(itemId);
         else itemsInCart.put(itemId, itemInCart);
 
-        cart.setItems(itemsInCart);
-        cart.setEmpty(itemsInCart.size() == 0);
-        if (itemsInCart.size() > 0) cart.setTotal(cart.getTotal().add(itemInCart.getPrice()));
-        else cart.setTotal(BigDecimal.valueOf(0));
-        log.trace("Finish actionWithItemInCart: cart={}", cart);
-    }
-
-    public void clearCart() {
-        cart.setItems(new HashMap<>());
-        cart.setTotal(BigDecimal.valueOf(0));
-        cart.setEmpty(true);
-    }
-
-    public CartDto getCart() {
-        return cart;
-    }
-
-    private int getItemCountInCart(Long itemId) {
-        if (cart.getItems().containsKey(itemId)) return cart.getItems().get(itemId).getCount();
-        return 0;
+        cartService.refresh(itemsInCart, itemInCart);
     }
 }
