@@ -8,6 +8,7 @@ import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.dto.ItemCreateDto;
 import ru.yandex.practicum.model.dto.ItemDto;
 import ru.yandex.practicum.model.dto.ItemsWithPagingDto;
+import ru.yandex.practicum.service.CartService;
 import ru.yandex.practicum.service.ItemService;
 import ru.yandex.practicum.service.OrderService;
 
@@ -16,6 +17,7 @@ import ru.yandex.practicum.service.OrderService;
 public class ShopController {
     private final ItemService itemService;
     private final OrderService orderService;
+    private final CartService cartService;
 
     /*
         а) GET "/" - редирект на "/main/items"
@@ -79,10 +81,10 @@ public class ShopController {
     */
     @GetMapping("/cart/items")
     public String getChart(Model model) {
-        CartDto cart = itemService.getCart();
-        model.addAttribute("items", cart.getItems().values());
-        model.addAttribute("total", cart.getTotal());
-        model.addAttribute("empty", cart.isEmpty());
+        CartDto cartCopy = cartService.getCart();
+        model.addAttribute("items", cartCopy.getItems().values());
+        model.addAttribute("total", cartCopy.getTotal());
+        model.addAttribute("empty", cartCopy.isEmpty());
         return "cart";
     }
 
