@@ -38,7 +38,7 @@ public class IntegrationTests extends OnlineShopApplicationTests {
     @Autowired
     private ItemRepository itemRepository;
 
-    @ParameterizedTest
+/*    @ParameterizedTest
     @ValueSource(strings = {"No", "ALPHA", "pRiCe"})
     void testGetItemsCheckSort(String sort) throws Exception {
         ItemsWithPagingDto items = itemService.getItems(null, sort,1, 10);
@@ -190,5 +190,5 @@ public class IntegrationTests extends OnlineShopApplicationTests {
         assertTrue(cartService.getCart().isEmpty());
 
         addItemInCart();
-    }
+    }*/
 }

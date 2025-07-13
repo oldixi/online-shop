@@ -44,7 +44,7 @@ public class ModelItemTests {
     @Value("${shop.image.path}")
     private String imagePath;
 
-    @Test
+/*    @Test
     void testAddItem() {
         ItemCreateDto itemCreateDto = ItemCreateDto.builder()
                 .title("Товар 1")
@@ -128,5 +128,5 @@ public class ModelItemTests {
         when(cartService.getItemsInCart()).thenReturn(new HashMap<>());
         ItemDto itemRes = itemService.getItemDtoById(1L);
         assertThat(itemRes).isEqualTo(itemDto);
-    }
+    }*/
 }

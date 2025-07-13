@@ -13,6 +13,5 @@ import java.util.List;
 public class OrderDto {
     private Long id;
     private List<ItemDto> items;
-    @Builder.Default
-    private BigDecimal totalSum  = BigDecimal.valueOf(0);
+    private BigDecimal totalSum;
 }
