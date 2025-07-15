@@ -3,6 +3,7 @@ package ru.yandex.practicum.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import ru.yandex.practicum.enumiration.ECartAction;
 import ru.yandex.practicum.enumiration.ESort;
 import ru.yandex.practicum.mapper.ItemMapper;
@@ -17,9 +19,11 @@ import ru.yandex.practicum.model.dto.*;
 import ru.yandex.practicum.model.entity.Item;
 import ru.yandex.practicum.repository.ItemRepository;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,7 +38,7 @@ public class ItemService {
     int itemsRowCount;
 
     public Mono<ItemsWithPagingDto> getItems(String search, String sort, int pageNumber, int pageSize) {
-        log.info("Start getItems: pageNumber={}, pageSize={}", pageNumber, pageSize);
+        log.debug("Start getItems: pageNumber={}, pageSize={}", pageNumber, pageSize);
         Pageable page = switch(ESort.valueOf(sort.toUpperCase())) {
             case NO -> PageRequest.of(pageNumber - 1, pageSize);
             case ALPHA -> PageRequest.of(pageNumber - 1, pageSize, Sort.by(Sort.Direction.ASC, "title"));
@@ -80,18 +84,41 @@ public class ItemService {
                 .zipWith(itemsDto, (res, itemsList) -> {
                     res.setItems(itemsList);
                     return res;
-                })
-                .log();
+                });
     }
 
     @Transactional
-    public Mono<ItemDto> saveItem(ItemCreateDto item) {
-        return itemRepository.save(itemMapper.toItem(item))
-                .map(itemMapper::toDto);
+    public Mono<ItemDto> saveItem(Mono<ItemCreateDto> itemCreatedDto) {
+        log.debug("Start saveItem: item={}, thread={}", itemCreatedDto, Thread.currentThread().getName());
+        return itemCreatedDto
+                .map(dto -> {
+                    if (dto.getImage() == null)
+                        return itemCreatedDto
+                                .map(itemMapper::toItem)
+                                .flatMap(itemRepository::save)
+                                .log()
+                                .map(itemMapper::toDto);
+                    return DataBufferUtils.join(dto.getImage().content())
+                                .publishOn(Schedulers.boundedElastic())
+                                .<byte[]>handle((dataBuffer, sink) -> {
+                                    try {
+                                        sink.next(dataBuffer.asInputStream().readAllBytes());
+                                    } catch (IOException e) {
+                                        sink.error(new RuntimeException(e));
+                                    }
+                                })
+                                .zipWith(itemCreatedDto.map(itemMapper::toItem), (byteArray, item) -> {
+                                    item.setImage(byteArray);
+                                    return item;
+                                })
+                                .flatMap(itemRepository::save)
+                                .map(itemMapper::toDto);
+                })
+                .flatMap(Function.identity());
     }
 
     public Mono<ItemDto> getItemDtoById(Long id) {
-        log.info("Start getItemDtoById: id={}", id);
+        log.debug("Start getItemDtoById: id={}", id);
         return itemRepository.findById(id)
                 .map(itemMapper::toDto)
                 .map(itemDto -> {
@@ -101,35 +128,27 @@ public class ItemService {
     }
 
     public Mono<byte[]> getImage(Long id) {
-        return itemRepository.findById(id).map(Item::getImage);
+        return itemRepository.findById(id).map(Item::getImage).onErrorComplete();
     }
 
-    public void actionWithItemInCart(Long itemId, String action) {
-        log.info("Start actionWithItemInCart: itemId={}, action={}", itemId, action);
+    public Mono<ItemDto> actionWithItemInCart(Long itemId, String action) {
+        log.debug("Start actionWithItemInCart: itemId={}, action={}", itemId, action);
         Map<Long, ItemDto> itemsInCart = cartService.getItemsInCart();
-        log.info("Processing actionWithItemInCart: itemsInCart={}", itemsInCart);
-        Mono<ItemDto> itemInCart;
-        if (itemsInCart.containsKey(itemId)) itemInCart = Mono.just(itemsInCart.get(itemId));
-        else itemInCart = getItemDtoById(itemId);
-
-        if (itemInCart != null) {
-            itemInCart.map(item -> {
-                switch (ECartAction.valueOf(action.toUpperCase())) {
-                    case PLUS -> item.setCount(item.getCount() + 1);
-                    case MINUS -> {
-                        if (item.getCount() >= 1) item.setCount(item.getCount() - 1);
-                    }
-                    case DELETE -> item.setCount(0);
-                }
-
-                log.trace("Process actionWithItemInCart, itemInCart={}, itemsInCart={}", item, itemsInCart);
-                if (item.getCount() == 0) itemsInCart.remove(itemId);
-                else itemsInCart.put(itemId, item);
-                cartService.refresh(itemsInCart, item);
-                return item;
-            })
-                    .subscribe();
-        }
-        log.info("Finish actionWithItemInCart: itemId={}, action={}", itemId, action);
+        log.trace("Processing actionWithItemInCart: itemsInCart={}", itemsInCart);
+        return (itemsInCart.containsKey(itemId) ? Mono.just(itemsInCart.get(itemId)) :
+                getItemDtoById(itemId))
+                        .map(item -> {
+                            switch (ECartAction.valueOf(action.toUpperCase())) {
+                                case PLUS -> item.setCount(item.getCount() + 1);
+                                case MINUS -> {
+                                    if (item.getCount() >= 1) item.setCount(item.getCount() - 1);
+                                }
+                                case DELETE -> item.setCount(0);
+                            }
+                            if (item.getCount() == 0) itemsInCart.remove(itemId);
+                            else itemsInCart.put(itemId, item);
+                            cartService.refresh(itemsInCart, item);
+                            return item;
+                        });
     }
 }

@@ -7,102 +7,128 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.ContextConfiguration;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.dto.ItemDto;
 import ru.yandex.practicum.model.dto.OrderDto;
 import ru.yandex.practicum.model.entity.Item;
+import ru.yandex.practicum.repository.ItemRepository;
 
-import java.util.Collections;
+import java.math.BigDecimal;
 import java.util.HashMap;
-import java.util.Optional;
 
 @Slf4j
 @SpringBootTest
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class OnlineShopApplicationTests {
+class OnlineShopApplicationTests extends AbstractTestContainer {
 	@Autowired
-	protected JdbcTemplate jdbcTemplate;
+	protected DatabaseClient databaseClient;
+	@Autowired
+	protected ItemRepository itemRepository;
 	@Autowired
 	protected CartDto cart;
-	protected Long maxItemId = 0L;
-	protected Long maxOrderId = 0L;
 
 	@Value("${shop.image.path}")
 	protected String imagePath;
 
 	@BeforeAll
 	public void createData() {
-		jdbcTemplate.update("insert into items(title, description, price) values('Товар№1', 'Тестовый товар номер один', 10)");
-		jdbcTemplate.update("insert into items(title, description, price) values('Товар№2', 'Тестовый товар номер два', 20)");
-		jdbcTemplate.update("insert into orders(total_sum) values(2200)");
-		maxOrderId = jdbcTemplate.queryForObject("select coalesce(max(id),0) from orders", Long.class);
-		maxItemId = jdbcTemplate.queryForObject("select coalesce(max(id),0) from items", Long.class);
-		jdbcTemplate.update("insert into items_in_order(title, description, price, count, item_id, order_id) values('Товар№1', 'Тестовый товар номер один', 10, 2, ?, ?)", maxItemId, maxOrderId);
-
-		addItemInCart();
+		System.out.println("Start createData");
+		databaseClient.sql("""
+			DO $$
+			DECLARE
+				item_id numeric := 0;
+				order_id numeric := 0;
+			BEGIN
+				insert into items(title, description, price) values('Товар№1', 'Тестовый товар номер один', 10);
+				insert into items(title, description, price) values('Товар№2', 'Тестовый товар номер два', 20) returning id into item_id;
+				insert into orders(total_sum) values(2200) returning id into order_id;
+				insert into items_in_order(title, description, price, count, item_id, order_id) values('Товар№1', 'Тестовый товар номер один', 10, 2, item_id, order_id);
+			END $$;
+			""").fetch()
+				.rowsUpdated()
+				.subscribe();
+		itemRepository.findAll().subscribe(System.out::println);
 	}
 
 	@AfterAll
 	public void tearDownData() {
-		jdbcTemplate.update("delete from items_in_order");
-		jdbcTemplate.update("delete from items");
-		jdbcTemplate.update("delete from orders");
+		System.out.println("Start tearDownData");
+		;
+		databaseClient.sql("""
+			DO $$
+			BEGIN
+			delete from items_in_order;
+			delete from items;
+			delete from orders;
+			END $$;
+    		""").fetch().rowsUpdated()
+				.log()
+				.subscribe();
 	}
-	protected Optional<ItemDto> getLastItem() {
-		String sql = "with last_item as (select last_value(i.id) over () max_id,\n" +
-				"                          i.*\n" +
-				"                   from items i)\n" +
-				"select last_item.id, last_item.title, last_item.description, last_item.price, last_item.image\n" +
-				"from last_item\n" +
-				"where last_item.id = last_item.max_id";
-
-		return Optional.of(jdbcTemplate.queryForObject(sql, (rs, rowNum) -> ItemDto.builder()
-				.id(rs.getLong("id"))
-				.title(rs.getString("title"))
-				.description(rs.getString("description"))
-				.price(rs.getBigDecimal("price"))
-				.imagePath(imagePath + rs.getLong("id"))
-				.build()));
-	}
-
-	protected Optional<Item> getAnyItem() {
-		String sql = "select id, title, description, price, image\n" +
-				"from items\n" +
-				"limit 1";
-
-		return Optional.of(jdbcTemplate.queryForObject(sql, (rs, rowNum) -> Item.builder()
-				.id(rs.getLong("id"))
-				.title(rs.getString("title"))
-				.description(rs.getString("description"))
-				.price(rs.getBigDecimal("price"))
-				.image(rs.getBytes("image"))
-				.build()));
+	protected Mono<ItemDto> getLastItem() {
+		String sql = """
+                with last_item as (select last_value(i.id) over () max_id, i.* from items i)
+                select last_item.id, last_item.title, last_item.description, last_item.price, last_item.image
+                from last_item
+                where last_item.id = last_item.max_id
+                """;
+		return databaseClient.sql(sql)
+				.map((row, metadata) -> ItemDto.builder()
+						.id(row.get("id", Long.class))
+						.title(row.get("title", String.class))
+						.description(row.get("description", String.class))
+						.price(row.get("price", BigDecimal.class))
+						.imagePath(imagePath + row.get("id", Long.class))
+				.build())
+				.one()
+				.log();
 	}
 
-	protected Optional<OrderDto> getLastOrder() {
-		String sql = "with last_order as (select last_value(o.id) over () max_id,\n" +
-				"                          o.*\n" +
-				"                   from orders o)\n" +
-				"select last_order.id, last_order.total_sum\n" +
-				"from last_order\n" +
-				"where last_order.id = last_order.max_id";
-
-		return Optional.of(jdbcTemplate.queryForObject(sql, (rs, rowNum) -> OrderDto.builder()
-				.id(rs.getLong("id"))
-				.totalSum(rs.getBigDecimal("total_sum"))
-				.build()));
+	protected Mono<Item> getAnyItem() {
+		String sql = "select id, title, description, price, image from items limit 1";
+		return databaseClient.sql(sql)
+				.map((row, metadata) -> Item.builder()
+						.id(row.get("id", Long.class))
+						.title(row.get("title", String.class))
+						.description(row.get("description", String.class))
+						.price(row.get("price", BigDecimal.class))
+						.image(row.get("image", byte[].class))
+						.build())
+				.one();
 	}
 
-	protected void addItemInCart() {
-		ItemDto item = getLastItem().get();
-		item.setCount(1);
-		cart.setEmpty(false);
-		cart.setItems(new HashMap<Long, ItemDto>() {{
-			put(item.getId(), item);
-		}});
-		cart.setTotal(item.getPrice());
+	protected Mono<OrderDto> getLastOrder() {
+		String sql = """ 
+       			with last_order as (select last_value(o.id) over () max_id, o.* from orders o)
+    			select last_order.id, last_order.total_sum
+    			from last_order
+    			where last_order.id = last_order.max_id
+    			""";
+		return databaseClient.sql(sql)
+				.map((row, rowNum) -> OrderDto.builder()
+						.id(row.get("id", Long.class))
+						.totalSum(row.get("total_sum", BigDecimal.class))
+						.build())
+				.one();
+	}
+
+	protected Mono<CartDto> addItemInCart() {
+		System.out.println("Start addItemInCart");
+		return getLastItem().log().map(itemDto -> {
+			itemDto.setCount(1);
+			return itemDto;
+		}).log().map(itemDto -> {
+			cart.setEmpty(false);
+			cart.setItems(new HashMap<Long, ItemDto>() {{
+				put(itemDto.getId(), itemDto);
+			}});
+			cart.setTotal(itemDto.getPrice());
+			return cart;
+		}).log();
 	}
 }

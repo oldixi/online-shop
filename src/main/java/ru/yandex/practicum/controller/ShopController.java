@@ -4,14 +4,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.dto.ItemCreateDto;
+import ru.yandex.practicum.model.dto.ItemDto;
 import ru.yandex.practicum.model.dto.ItemsWithPagingDto;
 import ru.yandex.practicum.service.CartService;
 import ru.yandex.practicum.service.ItemService;
 import ru.yandex.practicum.service.OrderService;
+
+import java.util.function.Function;
 
 @Controller
 @RequiredArgsConstructor
@@ -53,7 +58,7 @@ public class ShopController {
                                  @RequestParam(defaultValue = "NO", name = "sort") String sort,
                                  @RequestParam(defaultValue = "1", name = "pageNumber") int pageNumber,
                                  @RequestParam(defaultValue = "10", name = "pageSize") int pageSize) {
-        log.info("Start getItems");
+        log.debug("Start getItems");
         Mono<ItemsWithPagingDto> items = itemService.getItems(search, sort, pageNumber, pageSize);
         model.addAttribute("items", items.map(ItemsWithPagingDto::getItems));
         model.addAttribute("search", search);
@@ -69,9 +74,10 @@ public class ShopController {
     */
     @PostMapping("/main/items/{id}")
     public Mono<String> changeItemCount(@PathVariable("id") Long id,
-                                        @RequestParam(name = "action") String action) {
-        itemService.actionWithItemInCart(id, action);
-        return Mono.just("redirect:/main/items");
+                                        ServerWebExchange exchange) {
+        log.debug("Start changeItemCount: id={}, exchange={}", id, exchange);
+        return inspectRequest(id, exchange)
+                .map(itemDto -> "redirect:/main/items");
     }
 
     /*
@@ -97,10 +103,11 @@ public class ShopController {
         Возвращает: редирект на "/cart/items"
     */
     @PostMapping("/cart/items/{id}")
-    public Mono<String> changeItemCountInCart(@PathVariable("id") Long id,
-                                              @RequestParam(name = "action") String action) {
-        itemService.actionWithItemInCart(id, action);
-        return Mono.just("redirect:/cart/items");
+    public Mono<String> changeItemsCountInCart(@PathVariable("id") Long id,
+                                               ServerWebExchange exchange) {
+        log.debug("Start changeItemsCountInCart: id={}, exchange={}", id, exchange);
+        return inspectRequest(id, exchange)
+                .map(itemDto -> "redirect:/cart/items");
     }
 
     /*
@@ -111,8 +118,9 @@ public class ShopController {
     */
     @GetMapping("/items/{id}")
     public Mono<String> getItem(@PathVariable("id") Long id, Model model) {
-        model.addAttribute("item", itemService.getItemDtoById(id));
-        return Mono.just("item");
+        return itemService.getItemDtoById(id)
+                .doOnNext(item -> model.addAttribute("item", item))
+                .map(order -> "item");
     }
 
     /*
@@ -122,11 +130,10 @@ public class ShopController {
     */
     @PostMapping("/items/{id}")
     public Mono<String> changeItemsCount(@PathVariable("id") Long id,
-                                         @RequestParam(required = false) String action) {
-        log.info("Start changeItemsCount: id={}, action={}", id, action);
-        String actionData = action == null ? "PLUS" : action;
-        itemService.actionWithItemInCart(id, actionData);
-        return Mono.just("redirect:/items/" + id);
+                                         ServerWebExchange exchange) {
+        log.debug("Start changeItemsCount: id={}, exchange={}", id, exchange);
+        return inspectRequest(id, exchange)
+                .map(itemDto -> "redirect:/items/" + itemDto.getId());
     }
 
     /*
@@ -135,7 +142,7 @@ public class ShopController {
     */
     @PostMapping("/buy")
     public Mono<String> buy() {
-        log.info("Start buy");
+        log.debug("Start buy");
         return orderService.buy()
                 .map(id -> "redirect:/orders/" + id + "?newOrder=true");
     }
@@ -204,8 +211,20 @@ public class ShopController {
         Возвращает: редирект на созданный "/items/{id}"
     */
     @PostMapping("/main/items")
-    public Mono<String> addItem(@ModelAttribute("item") ItemCreateDto item) {
+    public Mono<String> addItem(@ModelAttribute("item") Mono<ItemCreateDto> item) {
         return itemService.saveItem(item)
                 .map(itemDto -> "redirect:/items/" + itemDto.getId());
+    }
+
+    private Mono<ItemDto> inspectRequest(Long id, ServerWebExchange exchange) {
+        log.debug("Start inspectRequest: exchange={}", exchange);
+        return exchange.getFormData()
+                .map(MultiValueMap::toSingleValueMap)
+                .map(map -> {
+                    log.trace("Received form map={}", map);
+                    return map.get("action");
+                })
+                .map(action -> itemService.actionWithItemInCart(id, action))
+                .flatMap(Function.identity());
     }
 }
