@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.dto.ItemDto;
@@ -24,7 +23,7 @@ import java.util.HashMap;
 @SpringBootTest
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class OnlineShopApplicationTests extends AbstractTestContainer {
+class OnlineShopApplicationTests {
 	@Autowired
 	protected DatabaseClient databaseClient;
 	@Autowired

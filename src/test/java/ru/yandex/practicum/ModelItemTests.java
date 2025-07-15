@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
 import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.mapper.ItemMapper;
@@ -30,7 +29,7 @@ import static org.mockito.Mockito.*;
 @Slf4j
 @SpringBootTest
 @ActiveProfiles("test")
-public class ModelItemTests extends AbstractTestContainer {
+public class ModelItemTests {
     @Mock
     private ItemRepository itemRepository;
     @Mock

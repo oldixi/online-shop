@@ -2,6 +2,7 @@ package ru.yandex.practicum;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
@@ -13,6 +14,7 @@ import ru.yandex.practicum.model.dto.OrderDto;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@AutoConfigureWebTestClient
 class IntegrationControllerTest extends OnlineShopApplicationTests {
     @Autowired
     private WebTestClient webTestClient;
