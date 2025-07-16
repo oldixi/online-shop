@@ -1,9 +1,16 @@
 <!DOCTYPE html>
+<<<<<<< HEAD
 <html lang="ru" xmlns:th="http://www.thymeleaf.org">
 
 <head>
     <title>Витрина товаров</title>
     <meta charset="UTF-8">
+=======
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <title>Витрина товаров</title>
+>>>>>>> main
 </head>
 
 <body>
@@ -29,7 +36,10 @@
         <p>
             <span th:text="${item.getDescription()}"></span>
         </p>
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
         <form th:action="${'/items/'+item.getId()}" method="post">
             <button name="action" value="minus">-</button>
             <span th:text="${item.getCount()}"></span>

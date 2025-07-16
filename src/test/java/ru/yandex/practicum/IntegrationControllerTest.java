@@ -206,7 +206,6 @@ class IntegrationControllerTest extends OnlineShopApplicationTests {
                         "id" - идентификатор заказа
                         "items" - List<Item> - список товаров в заказе (id, title, decription, imgPath, count, price)
                         "newOrder" - true, если переход со страницы оформления заказа (по умолчанию, false)
-
     */
     @Test
     void testGetOrder() throws Exception {
