@@ -10,9 +10,13 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 @EqualsAndHashCode
-public class OrderDto {
+public class OrderDto implements Comparable<OrderDto> {
     private Long id;
     private List<ItemDto> items;
-    @Builder.Default
-    private BigDecimal totalSum  = BigDecimal.valueOf(0);
+    private BigDecimal totalSum;
+
+    @Override
+    public int compareTo(OrderDto o) {
+        return Long.compare(this.id, o.id) * -1;
+    }
 }

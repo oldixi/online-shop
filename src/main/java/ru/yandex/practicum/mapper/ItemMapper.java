@@ -4,13 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import ru.yandex.practicum.model.dto.*;
 import ru.yandex.practicum.model.entity.Item;
-
-import java.io.IOException;
-import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -27,20 +24,12 @@ public class ItemMapper {
         return dto;
     }
 
-    public List<ItemDto> toListDto(Page<Item> entities) {
-        return entities.stream().map(this::toDto).toList();
+    public Flux<ItemDto> toListDto(Flux<Item> entities) {
+        return entities.map(this::toDto);
     }
 
     public Item toItem(ItemCreateDto dto) {
-        Item item = mapper.map(dto, Item.class);
-        if (item != null) {
-            try {
-                if (dto.getImage() != null && !dto.getImage().isEmpty())
-                    item.setImage(dto.getImage().getBytes());
-            } catch (IOException e) {
-                return item;
-            }
-        }
-        return item;
+        log.debug("Start toItem: dto={}", dto);
+        return mapper.map(dto, Item.class);
     }
 }
