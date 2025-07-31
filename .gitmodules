@@ -1,3 +1,6 @@
 [submodule "shop"]
 	path = shop
 	url = /shop
+[submodule "payments-api"]
+	path = payments-api
+	url = /payments-api
