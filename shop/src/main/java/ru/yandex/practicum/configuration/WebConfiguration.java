@@ -13,11 +13,9 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
-import reactor.core.publisher.Mono;
 import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.dto.ItemDto;
 
-import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
