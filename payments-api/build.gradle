@@ -19,8 +19,6 @@ openApiGenerate {
     outputDir.set("$projectDir/build/generated/")
     modelPackage.set("main.codegen.ru.yandex.practicum.api.model")
     apiPackage.set("main.codegen.ru.yandex.practicum.api")
-/*    modelPackage.set("ru.yandex.practicum")
-    apiPackage.set("ru.yandex.practicum")*/
     configOptions.set([
             sourceFolder: "src/gen/java",
             interfaceOnly: "true",

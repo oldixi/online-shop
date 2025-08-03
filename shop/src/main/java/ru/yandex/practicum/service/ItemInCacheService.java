@@ -30,7 +30,7 @@ public class ItemInCacheService {
 
     @Cacheable(cacheNames = "items", key="{#search, #sort, #pageNumber, #pageSize}")
     public Mono<List<ItemDto>>/*Mono<List<List<ItemDto>>>*/ getItems(String search, String sort, int pageNumber, int pageSize) {
-        log.info("Start getItems: pageNumber={}, pageSize={}, sort={}, search={}", pageNumber, pageSize, sort, search);
+        log.debug("Start getItems: pageNumber={}, pageSize={}, sort={}, search={}", pageNumber, pageSize, sort, search);
         Pageable page = switch(ESort.valueOf(sort.toUpperCase())) {
             case NO -> PageRequest.of(pageNumber - 1, pageSize);
             case ALPHA -> PageRequest.of(pageNumber - 1, pageSize, Sort.by(Sort.Direction.ASC, "title"));
@@ -46,7 +46,7 @@ public class ItemInCacheService {
 
     @Cacheable(value = "item", key = "#id")
     public Mono<ItemDto> getItemDtoById(Long id) {
-        log.info("Start getItemDtoById: id={}", id);
+        log.debug("Start getItemDtoById: id={}", id);
         return itemRepository.findById(id)
                 .map(itemMapper::toDto);
     }

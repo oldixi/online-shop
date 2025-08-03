@@ -14,20 +14,14 @@ public class PaymentsController implements DefaultApi {
 
     @Override
     public ResponseEntity<BigDecimal> apiBalanceGet() {
-        log.info("Start apiBalanceGet");
         if (balance == null) setRandomBalance();
-        log.info("Processing apiBalanceGet: balance={}", balance);
         return ResponseEntity.ok(balance);
     }
 
     @Override
     public ResponseEntity<Boolean> apiBalancePost(BigDecimal amount) {
-        log.info("Start apiBalancePost: amount={}", amount);
-        boolean isPaymentPassed = true;
         if (balance == null) setRandomBalance();
-        if (balance.subtract(amount).signum() == -1) isPaymentPassed = false;
-        log.info("Processing apiBalancePost: balance={}", balance);
-        return ResponseEntity.ok(isPaymentPassed);
+        return ResponseEntity.ok(balance.subtract(amount).signum() != -1);
     }
 
     private void setRandomBalance() {

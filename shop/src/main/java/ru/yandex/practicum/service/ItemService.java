@@ -52,7 +52,7 @@ public class ItemService {
     }
 
     public Mono<PagingParametersDto> getPaging(String search, String sort, int pageNumber, int pageSize) {
-        log.info("Start getPaging: pageNumber={}, pageSize={}", pageNumber, pageSize);
+        log.debug("Start getPaging: pageNumber={}, pageSize={}", pageNumber, pageSize);
         return Mono.just(PagingParametersDto.builder()
                         .pageNumber(pageNumber)
                         .pageSize(pageSize)
@@ -109,7 +109,7 @@ public class ItemService {
     }
 
     public Mono<ItemDto> actionWithItemInCart(Long itemId, String action) {
-        log.info("Start actionWithItemInCart: itemId={}, action={}", itemId, action);
+        log.debug("Start actionWithItemInCart: itemId={}, action={}", itemId, action);
         Mono<Map<Long, ItemDto>> itemsInCart = cartService.getItemsInCart().log();
         return itemsInCart.flatMap(itemsInCartNow ->
                         itemsInCartNow.containsKey(itemId) ? Mono.just(itemsInCartNow.get(itemId)) : getItemDtoById(itemId))

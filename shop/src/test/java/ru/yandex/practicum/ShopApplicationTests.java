@@ -23,7 +23,7 @@ import java.util.HashMap;
 @SpringBootTest
 @ActiveProfiles("test")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class OnlineShopApplicationTests {
+class ShopApplicationTests {
 	@Autowired
 	protected DatabaseClient databaseClient;
 	@Autowired

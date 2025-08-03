@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @AutoConfigureWebTestClient
-class IntegrationControllerTest extends OnlineShopApplicationTests {
+class IntegrationControllerTest extends ShopApplicationTests {
     @Autowired
     private WebTestClient webTestClient;
     @Autowired

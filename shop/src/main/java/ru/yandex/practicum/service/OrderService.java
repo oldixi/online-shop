@@ -58,7 +58,7 @@ public class OrderService {
     }
 
     public Mono<OrderDto> getOrderById(Long orderId) {
-        log.info("Start getOrderById: id={}", orderId);
+        log.debug("Start getOrderById: id={}", orderId);
         return itemInOrderService.getItemInOrderByOrderId(orderId)
                 .log()
                 .groupBy(ItemInOrder::getOrderId)

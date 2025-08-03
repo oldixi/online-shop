@@ -10,7 +10,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/shop
       - SPRING_DATASOURCE_USERNAME=shop
       - SPRING_DATASOURCE_PASSWORD=shop
-      - PAYMENTS_SERVER_URL=http://payments-api:8080
+      - PAYMENTS_SERVER_URL=http://payments-api:8085
 
   db:
     image: postgres:17-alpine
@@ -27,4 +27,4 @@ services:
   payments-api:
     build: ./payments-api
     ports:
-      - "8080:8080"
+      - "8085:8085"

@@ -11,14 +11,14 @@ import java.math.BigDecimal;
 @Slf4j
 public class PaymentsService extends DefaultApi {
     public Mono<BigDecimal> getBalance() {
-        log.info("Start getBalance");
+        log.debug("Start getBalance");
         return super.apiBalanceGet()
                 .log()
                 .onErrorReturn(BigDecimal.ZERO);
     }
 
     public Mono<Boolean> createPayment(BigDecimal amount) {
-        log.info("Start createPayment: amount={}", amount);
+        log.debug("Start createPayment: amount={}", amount);
         return super.apiBalancePost(amount)
                 .log()
                 .onErrorReturn(false);

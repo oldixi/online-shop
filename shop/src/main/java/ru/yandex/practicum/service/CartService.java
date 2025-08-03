@@ -27,22 +27,22 @@ public class CartService {
     }
 
     public Mono<Integer> getItemCountInCart(Long itemId) {
-        log.info("Start getItemCountInCart: itemId={}", itemId);
+        log.debug("Start getItemCountInCart: itemId={}", itemId);
         return cartRepository.getItemCountInCart(itemId).log();
     }
 
     public Mono<BigDecimal> getTotalPrice() {
-        log.info("Start getTotalPrice");
+        log.debug("Start getTotalPrice");
         return cartRepository.getTotalPrice().log();
     }
 
     public Mono<Map<Long, ItemDto>> getItemsInCart() {
-        log.info("Start getItemsInCart");
+        log.debug("Start getItemsInCart");
         return cartRepository.getItemsInCart().log();
     }
 
     public Mono<CartDto> refresh(ItemDto itemDto, String action) {
-        log.info("Start refresh: itemDto={}, action={}", itemDto, action);
+        log.debug("Start refresh: itemDto={}, action={}", itemDto, action);
         switch (ECartAction.valueOf(action.toUpperCase())) {
             case PLUS -> itemDto.setCount(itemDto.getCount() + 1);
             case MINUS -> {

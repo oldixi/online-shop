@@ -15,13 +15,13 @@ import ru.yandex.practicum.model.dto.ItemDto;
 import ru.yandex.practicum.model.entity.Item;
 import ru.yandex.practicum.repository.ItemRepository;
 import ru.yandex.practicum.service.CartService;
+import ru.yandex.practicum.service.ItemInCacheService;
 import ru.yandex.practicum.service.ItemService;
 
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
-import java.util.HashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -36,6 +36,8 @@ public class ModelItemTests {
     private ItemMapper itemMapper;
     @Mock
     private CartService cartService;
+    @Mock
+    private ItemInCacheService cacheService;
 
     @InjectMocks
     private ItemService itemService;
@@ -91,11 +93,11 @@ public class ModelItemTests {
             item.setImage(picture.getBytes());
         } catch (IOException ignore) {}
 
-        when(itemRepository.findById(any(Long.class))).thenReturn(Mono.just(item));
+        when(cacheService.getImage(any(Long.class))).thenReturn(Mono.just(item.getImage()));
         itemService.getImage(1L)
                 .doOnNext(image -> assertThat(image).isEqualTo(item.getImage()))
                 .subscribe();
-        verify(itemRepository).findById(1L);
+        verify(cacheService).getImage(1L);
     }
 
     @Test
@@ -107,21 +109,16 @@ public class ModelItemTests {
                 .imagePath(imagePath + "1L")
                 .build();
 
-        Item item = Item.builder()
+        ItemDto item = ItemDto.builder()
                 .id(1L)
                 .title("Товар 1")
                 .description("Товар для mock проверки")
                 .price(BigDecimal.valueOf(10))
                 .build();
-        try {
-            MultipartFile picture = new MockMultipartFile("shop.png",
-                    Files.readAllBytes(new File("shop.png").toPath()));
-            item.setImage(picture.getBytes());
-        } catch (IOException ignore) {}
 
-        when(itemRepository.findById(any(Long.class))).thenReturn(Mono.just(item));
+        when(cacheService.getItemDtoById(any(Long.class))).thenReturn(Mono.just(item));
         when(itemMapper.toDto(any(Item.class))).thenReturn(itemDto);
-        when(cartService.getItemsInCart()).thenReturn(Mono.just(new HashMap<>()));
+        when(cartService.getItemCountInCart(any(Long.class))).thenReturn(Mono.just(0));
         itemService.getItemDtoById(1L)
                 .doOnNext(itemRes -> assertThat(itemRes).isEqualTo(itemDto))
                 .subscribe();

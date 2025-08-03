@@ -16,7 +16,6 @@ import ru.yandex.practicum.service.OrderService;
 import ru.yandex.practicum.service.PaymentsService;
 
 import java.math.BigDecimal;
-import java.util.List;
 import java.util.function.Function;
 
 @Controller
@@ -61,7 +60,6 @@ public class ShopController {
                                  @RequestParam(defaultValue = "1", name = "pageNumber") int pageNumber,
                                  @RequestParam(defaultValue = "10", name = "pageSize") int pageSize) {
         log.debug("Start getItems");
-        //if (search == null || search.isBlank()) search = "DUMMY";
         model.addAttribute("items", itemService.getItems(search, sort, pageNumber, pageSize));
         model.addAttribute("search", search);
         model.addAttribute("sort", sort);
@@ -230,30 +228,5 @@ public class ShopController {
                 .map(map -> map.get("action"))
                 .map(action -> itemService.actionWithItemInCart(id, action))
                 .flatMap(Function.identity());
-    }
-
-    @GetMapping("/main/items/new")
-    @ResponseBody
-    public Mono<List<List<ItemDto>>> getBodyItems(@RequestParam(defaultValue = "", name = "search") String search,
-                                                  @RequestParam(defaultValue = "NO", name = "sort") String sort,
-                                                  @RequestParam(defaultValue = "1", name = "pageNumber") int pageNumber,
-                                                  @RequestParam(defaultValue = "10", name = "pageSize") int pageSize) {
-        log.info("Start getBodyItems");
-        //if (search == null || search.isBlank()) search = "DUMMY";
-        return itemService.getItems(search, sort, pageNumber, pageSize);
-    }
-
-    @GetMapping("/balance")
-    @ResponseBody
-    public Mono<BigDecimal> getBalance() {
-        log.info("Start getBalance");
-        return paymentsService.getBalance();
-    }
-
-    @PostMapping("/balance")
-    @ResponseBody
-    public Mono<Boolean> createPayment(@RequestParam BigDecimal amount) {
-        log.info("Start createPayment: amount={}", amount);
-        return paymentsService.createPayment(amount);
     }
 }
