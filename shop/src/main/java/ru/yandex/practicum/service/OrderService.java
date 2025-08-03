@@ -33,6 +33,7 @@ public class OrderService {
     public Mono<Long> buy() {
         return cartService.getCart()
                 .flatMap(cart -> paymentsService.createPayment(cart.getTotal()))
+                .log()
                 .zipWith(cartService.getCart(), (paymentRes, cartDto)  -> {
                     if (paymentRes)
                         return orderRepository.save(orderMapper.toOrder(OrderDto.builder()
@@ -46,7 +47,7 @@ public class OrderService {
                                     itemInOrderMapper.toItemInOrderList(cartDto.getItems().values().stream().toList())
                                             .forEach(item -> {
                                                 item.setOrderId(orderId);
-                                                itemInOrderService.save(item);
+                                                itemInOrderService.save(item).subscribe();
                                             });
                                     return orderId;
                                 })
@@ -57,7 +58,9 @@ public class OrderService {
     }
 
     public Mono<OrderDto> getOrderById(Long orderId) {
+        log.info("Start getOrderById: id={}", orderId);
         return itemInOrderService.getItemInOrderByOrderId(orderId)
+                .log()
                 .groupBy(ItemInOrder::getOrderId)
                 .flatMap(Flux::collectList)
                 .map(items -> OrderDto.builder()

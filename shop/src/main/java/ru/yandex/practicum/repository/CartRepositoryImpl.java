@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import ru.yandex.practicum.enumiration.ECartAction;
 import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.dto.ItemDto;
 
@@ -42,7 +43,12 @@ public class CartRepositoryImpl implements CartRepository {
     }
 
     @Override
-    public Mono<CartDto> update(CartDto cartDto) {
+    public Mono<BigDecimal> getTotalPrice() {
+        return Mono.just(cart.getTotal());
+    }
+
+    @Override
+    public Mono<CartDto> save(CartDto cartDto) {
         cart.setItems(cartDto.getItems());
         cart.setTotal(cartDto.getTotal());
         cart.setEmpty(cartDto.isEmpty());
@@ -50,7 +56,28 @@ public class CartRepositoryImpl implements CartRepository {
     }
 
     @Override
-    public Mono<BigDecimal> getTotalPrice() {
-        return Mono.just(cart.getTotal());
+    public Mono<CartDto> changeItemCountInCart(ItemDto itemDto, String action) {
+        Map<Long, ItemDto> cartItems = cart.getItems();
+        cartItems.put(itemDto.getId(), itemDto);
+        cart.setItems(cartItems);
+        cart.setEmpty(false);
+        if (ECartAction.PLUS.equals(ECartAction.valueOf(action.toUpperCase())))
+            cart.setTotal(cart.getTotal().add(itemDto.getPrice()));
+        else
+            cart.setTotal(cart.getTotal().subtract(itemDto.getPrice()));
+        return Mono.just(cart);
+    }
+
+    @Override
+    public Mono<CartDto> removeItemFromCart(ItemDto itemDto) {
+        Map<Long, ItemDto> cartItems = cart.getItems();
+        cartItems.remove(itemDto.getId());
+        cart.setItems(cartItems);
+        cart.setEmpty(cart.getItems().size() == 0);
+        cart.setTotal(cartItems.values()
+                .stream()
+                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getCount())))
+                .reduce(BigDecimal.ZERO,BigDecimal::add));
+        return Mono.just(cart);
     }
 }

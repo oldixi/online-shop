@@ -18,6 +18,4 @@ public class CartDto {
     private BigDecimal total = BigDecimal.valueOf(0);
     @Builder.Default
     private boolean empty = true;
-    @Builder.Default
-    private boolean canBuy = false;
 }

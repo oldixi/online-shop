@@ -65,7 +65,7 @@ public class ShopController {
         model.addAttribute("items", itemService.getItems(search, sort, pageNumber, pageSize));
         model.addAttribute("search", search);
         model.addAttribute("sort", sort);
-        model.addAttribute("paging", itemService.getPaging(pageNumber, pageSize));
+        model.addAttribute("paging", itemService.getPaging(search, sort, pageNumber, pageSize));
         return Mono.just("main");
     }
 
@@ -96,6 +96,8 @@ public class ShopController {
                 .doOnNext(cart -> model.addAttribute("items", cart.getItems().values()))
                 .doOnNext(cart -> model.addAttribute("total", cart.getTotal()))
                 .doOnNext(cart -> model.addAttribute("empty", cart.isEmpty()))
+                .zipWith(paymentsService.getBalance().onErrorReturn(BigDecimal.valueOf(-1)), (cart, balance) ->
+                    model.addAttribute("canBuy", balance.compareTo(cart.getTotal()) >= 0))
                 .map(cart -> "cart");
     }
 
@@ -109,6 +111,7 @@ public class ShopController {
                                                ServerWebExchange exchange) {
         log.debug("Start changeItemsCountInCart: id={}, exchange={}", id, exchange);
         return inspectRequest(id, exchange)
+                .onErrorComplete()
                 .map(itemDto -> "redirect:/cart/items");
     }
 
@@ -135,7 +138,7 @@ public class ShopController {
                                          ServerWebExchange exchange) {
         log.debug("Start changeItemsCount: id={}, exchange={}", id, exchange);
         return inspectRequest(id, exchange)
-                .map(itemDto -> "redirect:/items/" + itemDto.getId());
+                .map(itemDto -> "redirect:/items/" + id);
     }
 
     /*
@@ -146,6 +149,7 @@ public class ShopController {
     public Mono<String> buy() {
         log.debug("Start buy");
         return orderService.buy()
+                .log()
                 .map(id -> "redirect:/orders/" + id + "?newOrder=true")
                 .onErrorReturn("error");
     }
@@ -178,7 +182,7 @@ public class ShopController {
      */
     @GetMapping("/orders/{id}")
     public Mono<String> getOrder(Model model, @PathVariable("id") Long id,
-                           @RequestParam(name = "newOrder", defaultValue = "false") boolean newOrder) {
+                                 @RequestParam(name = "newOrder", defaultValue = "false") boolean newOrder) {
         model.addAttribute("newOrder", newOrder);
         model.addAttribute("order", orderService.getOrderById(id));
         return Mono.just("order");
@@ -223,10 +227,7 @@ public class ShopController {
         log.debug("Start inspectRequest: exchange={}", exchange);
         return exchange.getFormData()
                 .map(MultiValueMap::toSingleValueMap)
-                .map(map -> {
-                    log.trace("Received form map={}", map);
-                    return map.get("action");
-                })
+                .map(map -> map.get("action"))
                 .map(action -> itemService.actionWithItemInCart(id, action))
                 .flatMap(Function.identity());
     }

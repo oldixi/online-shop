@@ -18,5 +18,9 @@ public interface CartRepository {
 
     Mono<BigDecimal> getTotalPrice();
 
-    Mono<CartDto> update(CartDto cartDto);
+    Mono<CartDto> save(CartDto cartDto);
+
+    Mono<CartDto> changeItemCountInCart(ItemDto itemDto, String action);
+
+    Mono<CartDto> removeItemFromCart(ItemDto itemDto);
 }
