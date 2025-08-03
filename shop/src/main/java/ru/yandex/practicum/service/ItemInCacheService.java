@@ -29,7 +29,7 @@ public class ItemInCacheService {
     int itemsRowCount;
 
     @Cacheable(cacheNames = "items", key="{#search, #sort, #pageNumber, #pageSize}")
-    public Mono<List<ItemDto>>/*Mono<List<List<ItemDto>>>*/ getItems(String search, String sort, int pageNumber, int pageSize) {
+    public Mono<List<ItemDto>> getItems(String search, String sort, int pageNumber, int pageSize) {
         log.debug("Start getItems: pageNumber={}, pageSize={}, sort={}, search={}", pageNumber, pageSize, sort, search);
         Pageable page = switch(ESort.valueOf(sort.toUpperCase())) {
             case NO -> PageRequest.of(pageNumber - 1, pageSize);

@@ -1,8 +1,10 @@
 package ru.yandex.practicum.configuration;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import main.codegen.ru.yandex.practicum.ApiClient;
+import main.codegen.ru.yandex.practicum.api.DefaultApi;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.cache.RedisCacheManagerBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.modelmapper.ModelMapper;
@@ -11,9 +13,11 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import reactor.core.publisher.Mono;
 import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.dto.ItemDto;
 
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -22,7 +26,8 @@ import java.util.List;
 @Slf4j
 @RequiredArgsConstructor
 public class WebConfiguration {
-    private final ObjectMapper objectMapper;
+    @Value("${payments.server.url}")
+    private String apiPath;
 
     @Bean()
     public ModelMapper modelMapper() {
@@ -65,5 +70,12 @@ public class WebConfiguration {
                         .serializeValuesWith(RedisSerializationContext
                                 .SerializationPair.fromSerializer(new Jackson2JsonRedisSerializer(om.getTypeFactory()
                                         .constructCollectionType(List.class, ItemDto.class)))));
+    }
+
+    @Bean
+    public ApiClient apiClient(DefaultApi defaultApi) {
+        defaultApi.getApiClient().setBasePath(apiPath);
+        log.info("apiClientBasePath={}", defaultApi.getApiClient().getBasePath());
+        return defaultApi.getApiClient();
     }
 }

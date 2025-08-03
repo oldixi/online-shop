@@ -6,11 +6,15 @@ services:
     depends_on:
       - db
       - payments-api
+      - redis-cache
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/shop
-      - SPRING_DATASOURCE_USERNAME=shop
-      - SPRING_DATASOURCE_PASSWORD=shop
+      - SPRING_R2DBC_URL=r2dbc:postgresql://db:5432/shop
+      - SPRING_R2DBC_USERNAME=shop
+      - SPRING_R2DBC_PASSWORD=shop
+      - SPRING_DATA_R2DBC_REPOSITORIES_ENABLED=true
       - PAYMENTS_SERVER_URL=http://payments-api:8085
+      - SPRING_DATA_REDIS_HOST=redis-cache
+      - SPRING_DATA_REDIS_PORT:6379
 
   db:
     image: postgres:17-alpine
@@ -28,3 +32,8 @@ services:
     build: ./payments-api
     ports:
       - "8085:8085"
+
+  redis-cache:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
