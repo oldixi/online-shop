@@ -21,6 +21,7 @@ public class PaymentsController implements DefaultApi {
     @Override
     public ResponseEntity<Boolean> apiBalancePost(BigDecimal amount) {
         if (balance == null) setRandomBalance();
+        if (balance.subtract(amount).signum() != -1) balance = balance.subtract(amount);
         return ResponseEntity.ok(balance.subtract(amount).signum() != -1);
     }
 

@@ -2,20 +2,21 @@ package ru.yandex.practicum.controller;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PostAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-import ru.yandex.practicum.model.dto.ItemCreateDto;
-import ru.yandex.practicum.model.dto.ItemDto;
-import ru.yandex.practicum.service.CartService;
-import ru.yandex.practicum.service.ItemService;
-import ru.yandex.practicum.service.OrderService;
-import ru.yandex.practicum.service.PaymentsService;
+import ru.yandex.practicum.model.dto.*;
+import ru.yandex.practicum.service.*;
 
+import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.security.Principal;
 import java.util.function.Function;
 
 @Controller
@@ -26,6 +27,7 @@ public class ShopController {
     private final OrderService orderService;
     private final CartService cartService;
     private final PaymentsService paymentsService;
+    private final UserService userService;
 
     /*
         а) GET "/" - редирект на "/main/items"
@@ -54,13 +56,14 @@ public class ShopController {
             				"hasPrevious" - можно ли пролистнуть назад
     */
     @GetMapping("/main/items")
-    public Mono<String> getItems(Model model,
+    public Mono<String> getItems(Model model, Principal principal,
                                  @RequestParam(defaultValue = "", name = "search") String search,
                                  @RequestParam(defaultValue = "NO", name = "sort") String sort,
                                  @RequestParam(defaultValue = "1", name = "pageNumber") int pageNumber,
                                  @RequestParam(defaultValue = "10", name = "pageSize") int pageSize) {
         log.debug("Start getItems");
-        model.addAttribute("items", itemService.getItems(search, sort, pageNumber, pageSize));
+        model.addAttribute("items", itemService.getItems(search, sort, pageNumber, pageSize,
+                principal == null ? "" : principal.getName()));
         model.addAttribute("search", search);
         model.addAttribute("sort", sort);
         model.addAttribute("paging", itemService.getPaging(search, sort, pageNumber, pageSize));
@@ -89,12 +92,12 @@ public class ShopController {
         			    "empty" - true, если в корзину не добавлен ни один товар
     */
     @GetMapping("/cart/items")
-    public Mono<String> getChart(Model model) {
-        return cartService.getCart()
+    public Mono<String> getChart(Model model, Principal principal) {
+        return cartService.getCart(principal == null ? "" : principal.getName())
                 .doOnNext(cart -> model.addAttribute("items", cart.getItems().values()))
                 .doOnNext(cart -> model.addAttribute("total", cart.getTotal()))
                 .doOnNext(cart -> model.addAttribute("empty", cart.isEmpty()))
-                .zipWith(paymentsService.getBalance().onErrorReturn(BigDecimal.valueOf(-1)), (cart, balance) ->
+                .zipWith(paymentsService.getBalance().onErrorReturn(BigDecimal.valueOf(-1)).log(), (cart, balance) ->
                     model.addAttribute("canBuy", balance.compareTo(cart.getTotal()) >= 0))
                 .map(cart -> "cart");
     }
@@ -120,8 +123,8 @@ public class ShopController {
        				"item" - товаров (id, title, description, imgPath, count, price)
     */
     @GetMapping("/items/{id}")
-    public Mono<String> getItem(@PathVariable("id") Long id, Model model) {
-        return itemService.getItemDtoById(id)
+    public Mono<String> getItem(@PathVariable("id") Long id, Model model, Principal principal) {
+        return itemService.getItemDtoById(id, principal == null ? "" : principal.getName())
                 .doOnNext(item -> model.addAttribute("item", item))
                 .map(order -> "item");
     }
@@ -144,12 +147,12 @@ public class ShopController {
         Возвращает: редирект на "/orders/{id}?newOrder=true"
     */
     @PostMapping("/buy")
-    public Mono<String> buy() {
+    public Mono<String> buy(Principal principal) {
         log.debug("Start buy");
-        return orderService.buy()
+        return orderService.buy(principal == null ? "" : principal.getName())
                 .log()
                 .map(id -> "redirect:/orders/" + id + "?newOrder=true")
-                .onErrorReturn("error");
+                .onErrorReturn("redirect:/error?message=" + URLEncoder.encode("недостаточно средств. Пополните счет и повторите попытку"));
     }
 
     /*
@@ -201,7 +204,8 @@ public class ShopController {
         GET "/main/items/add" - страница добавления товара
         Возвращает: шаблон "add-item.html"
     */
-    @GetMapping("/main/items/add")
+    @GetMapping("/admin/items/add")
+    @PostAuthorize("hasRole('ADMIN')")
     public Mono<String> addItemPage() {
         return Mono.just("add-item");
     }
@@ -215,10 +219,47 @@ public class ShopController {
                     "price" - цена товара
         Возвращает: редирект на созданный "/items/{id}"
     */
-    @PostMapping("/main/items")
+    @PostMapping("/admin/items/add")
+    @PostAuthorize("hasRole('ADMIN')")
     public Mono<String> addItem(@ModelAttribute("item") Mono<ItemCreateDto> item) {
         return itemService.saveItem(item)
                 .map(itemDto -> "redirect:/items/" + itemDto.getId());
+    }
+
+    /*
+    GET "/main/items/add" - страница добавления товара
+    Возвращает: шаблон "add-item.html"
+    */
+    @GetMapping("/signup")
+    public Mono<String> addUserPage() {
+        return Mono.just("add-user");
+    }
+
+    /*
+    POST "/signup" - создание аккаунта
+    Параметры:  "login" - название товара
+                "password" - текст товара
+    Возвращает: редирект на форму логина "/login"
+    */
+    @PostMapping("/signup")
+    public Mono<String> addUser(@ModelAttribute("user") Mono<NewUserDto> user) throws UnsupportedEncodingException {
+        return userService.addUser(user)
+                .log()
+                .onErrorReturn("redirect:/error?message=" + URLEncoder.encode("пользователь с таким логином уже существует", "UTF-8"))
+                .map(login -> "redirect:/login");
+    }
+
+    /*
+    GET "/error" - страница сообщения об ошибке
+    Возвращает: шаблон "error.html"
+    */
+    @GetMapping("/error")
+    public Mono<String> getError(Model model,
+                                 @RequestParam(defaultValue = "повторите операцию позже", name = "message") String message)
+            throws UnsupportedEncodingException {
+        log.info("Start getError: message={}", message);
+        model.addAttribute("message", URLDecoder.decode(message, "UTF-8"));
+        return Mono.just("error");
     }
 
     private Mono<ItemDto> inspectRequest(Long id, ServerWebExchange exchange) {
@@ -226,7 +267,7 @@ public class ShopController {
         return exchange.getFormData()
                 .map(MultiValueMap::toSingleValueMap)
                 .map(map -> map.get("action"))
-                .map(action -> itemService.actionWithItemInCart(id, action))
+                .zipWith(exchange.getPrincipal().map(Principal::getName), (action, login) -> itemService.actionWithItemInCart(id, action, login))
                 .flatMap(Function.identity());
     }
 }

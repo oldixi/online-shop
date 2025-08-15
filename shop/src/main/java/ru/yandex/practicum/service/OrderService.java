@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import ru.yandex.practicum.mapper.ItemInOrderMapper;
 import ru.yandex.practicum.mapper.OrderMapper;
 
@@ -30,15 +31,17 @@ public class OrderService {
     private final PaymentsService paymentsService;
 
     @Transactional
-    public Mono<Long> buy() {
-        return cartService.getCart()
+    public Mono<Long> buy(String login) {
+        log.info("Start buy: login={}", login);
+        return cartService.getCart(login)
                 .flatMap(cart -> paymentsService.createPayment(cart.getTotal()))
                 .log()
-                .zipWith(cartService.getCart(), (paymentRes, cartDto)  -> {
+                .zipWith(cartService.getCart(login), (paymentRes, cartDto)  -> {
                     if (paymentRes)
                         return orderRepository.save(orderMapper.toOrder(OrderDto.builder()
                                         .totalSum(cartDto.getTotal())
                                         .items(cartDto.getItems().values().stream().toList())
+                                        .login(login)
                                         .build()))
                                 .log()
                                 .map(Order::getId)
@@ -51,7 +54,12 @@ public class OrderService {
                                             });
                                     return orderId;
                                 })
-                                .log();
+                                .log()
+                                .publishOn(Schedulers.boundedElastic())
+                                .map(successOrderId -> {
+                                    cartService.clearCart(login).log().subscribe();
+                                    return successOrderId;
+                                });
                     throw new RuntimeException();
                 })
                 .flatMap(Function.identity());

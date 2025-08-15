@@ -2,6 +2,7 @@ databaseChangeLog:
   - changeSet:
       id: create_item
       author: oldixi
+      failOnError: false
       changes:
         - createTable:
             tableName: items
@@ -40,6 +41,7 @@ databaseChangeLog:
   - changeSet:
       id: create_orders
       author: oldixi
+      failOnError: false
       changes:
         - createTable:
             tableName: orders
@@ -64,6 +66,7 @@ databaseChangeLog:
   - changeSet:
       id: create_items_in_order
       author: oldixi
+      failOnError: false
       changes:
         - createTable:
             tableName: items_in_order
@@ -114,6 +117,7 @@ databaseChangeLog:
   - changeSet:
       id: create_fk_constraint
       author: oldixi
+      failOnError: false
       changes:
         - addForeignKeyConstraint:
             baseTableName: items_in_order
@@ -129,6 +133,7 @@ databaseChangeLog:
   - changeSet:
       id: create_items_in_order_seq
       author: oldixi
+      failOnError: false
       changes:
         - createSequence:
             sequenceName: items_in_order_seq

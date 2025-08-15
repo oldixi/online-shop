@@ -32,3 +32,14 @@ paths:
             application/json:
               schema:
                 type: boolean
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: http://localhost:8080/realms/master/protocol/openid-connect/auth
+          tokenUrl: http://localhost:8080/realms/master/protocol/openid-connect/token
+          scopes: {}
+security:
+  - oauth2: []

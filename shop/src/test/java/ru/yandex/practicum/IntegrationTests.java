@@ -7,7 +7,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
-import ru.yandex.practicum.enumiration.ECartAction;
+import ru.yandex.practicum.mapper.ItemInCartMapper;
 import ru.yandex.practicum.model.dto.*;
 import ru.yandex.practicum.model.entity.Item;
 import ru.yandex.practicum.service.CartService;
@@ -15,6 +15,7 @@ import ru.yandex.practicum.service.ItemService;
 import ru.yandex.practicum.service.OrderService;
 
 import java.math.BigDecimal;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -25,11 +26,13 @@ public class IntegrationTests extends ShopApplicationTests {
     private ItemService itemService;
     @Autowired
     private CartService cartService;
+    @Autowired
+    private ItemInCartMapper itemInCartMapper;
 
     @ParameterizedTest
     @ValueSource(strings = {"No", "ALPHA", "pRiCe"})
     void testGetItemsCheckSort(String sort) throws Exception {
-        itemService.getItems(null, sort,1, 10)
+        itemService.getItems(null, sort,1, 10, "user")
                 .doOnNext(Assertions::assertNotNull).subscribe();
 
         var sortSelect = databaseClient.sql("select min(title) as title from items")
@@ -40,12 +43,12 @@ public class IntegrationTests extends ShopApplicationTests {
                 .one();
 
         switch (sort.toUpperCase()) {
-            case "ALPHA" ->  itemService.getItems(null, sort,1, 10)
+            case "ALPHA" ->  itemService.getItems(null, sort,1, 10, "user")
                     .zipWith(sortSelect, (items, fromDb) -> {
                         assertEquals(fromDb, items.getFirst().getFirst().getTitle());
                         return items;
                     }).subscribe();
-            case "PRICE" ->  itemService.getItems(null, sort,1, 10)
+            case "PRICE" ->  itemService.getItems(null, sort,1, 10, "user")
                     .zipWith(priceSelect, (items, fromDb) -> {
                         assertEquals(fromDb, items.getFirst().getFirst().getPrice());
                         return items;
@@ -56,10 +59,12 @@ public class IntegrationTests extends ShopApplicationTests {
 
     @Test
     void testGetItemsInCart() throws Exception {
-        cartService.getCart()
-                .doOnNext(cartCopy -> {
-                    assertArrayEquals(cart.getItems().keySet().toArray(), cartCopy.getItems().keySet().toArray());
-                    assertArrayEquals(cart.getItems().values().toArray(), cartCopy.getItems().values().toArray());
+        addItemInCart()
+                .flatMap(cart -> cartService.getCart("user"))
+                .log()
+                .zipWith(getItemsInCart().collectList(), (cart, items) -> {
+                    assertArrayEquals(itemInCartMapper.toItemDto(items).toArray(), cart.getItems().values().toArray());
+                    return cart;
                 })
                 .subscribe();
     }
@@ -67,7 +72,7 @@ public class IntegrationTests extends ShopApplicationTests {
     @Test
     void testGetItem() throws Exception {
         Mono<Item> item = getAnyItem();
-        item.flatMap(itemFromDb -> itemService.getItemDtoById(itemFromDb.getId()))
+        item.flatMap(itemFromDb -> itemService.getItemDtoById(itemFromDb.getId(), "user"))
                 .zipWith(item, (itemDto, anyItem) -> {
                     assertNotNull(itemDto);
                     assertNotNull(itemDto.getId());
@@ -87,7 +92,7 @@ public class IntegrationTests extends ShopApplicationTests {
         orderDtoFromDb
                 .flatMap(lastOrder -> addItemInCart())
                 .log()
-                .flatMap(cart -> orderService.buy())
+                .flatMap(cart -> orderService.buy("user"))
                 .log()
                 .zipWith(orderDtoFromDb, (newOrderId, orderDto) -> {
                     assertNotNull(newOrderId);
@@ -156,29 +161,20 @@ public class IntegrationTests extends ShopApplicationTests {
 
     @ParameterizedTest
     @ValueSource(strings = {"PLUS", "minus", "DeLeTe"})
-    void testChangeItemCountInCart(String action) throws Exception {
-        int itemsInCartCnt = cart.getItems().values().stream().mapToInt(ItemDto::getCount).sum();
-        switch(ECartAction.valueOf(action.toUpperCase())) {
-            case PLUS -> addItemInCart()
-                    .flatMap(cartDto -> itemService.actionWithItemInCart(cartDto.getItems().values().stream().findFirst().get().getId(), action))
-                    .subscribe(itemDto -> {
-                        assertTrue(cart.getItems().containsKey(itemDto.getId()));
-                        assertEquals(itemsInCartCnt + 2, cart.getItems().values().stream().mapToInt(ItemDto::getCount).sum());
-                    });
-            case MINUS -> addItemInCart()
-                    .flatMap(cart -> itemService.actionWithItemInCart(cart.getItems().values().stream().findFirst().get().getId(), action))
-                    .subscribe(itemDto ->
-                            assertEquals(itemsInCartCnt == 0 ? 0 : itemsInCartCnt - 2, cart.getItems().values().stream().mapToInt(ItemDto::getCount).sum()));
-            case DELETE -> addItemInCart()
-                    .flatMap(cart -> itemService.actionWithItemInCart(cart.getItems().values().stream().findFirst().get().getId(), action))
-                    .subscribe(itemDto -> assertFalse(cart.getItems().containsKey(itemDto.getId())));
-        }
+    void testChangeItemCountInCart(String action) {
+        addItemInCart()
+                .map(itemInCartDto -> itemService.actionWithItemInCart(itemInCartDto.getItemId(), action, "user"))
+                .flatMap(Function.identity())
+                .zipWith(cartService.getItemsInCart("user"), (itemDto, itemMap) -> {
+                    assertEquals(itemMap.get(0).getCount(), itemDto.getCount());
+                    return itemDto.getCount();
+                }).subscribe();
     }
 
     @Test
     void testClearCart() throws Exception {
-        cartService.clearCart()
-                .then(Mono.defer(() -> cartService.getCart()))
+        cartService.clearCart("user")
+                .then(Mono.defer(() -> cartService.getCart("user")))
                 .doOnNext(emptyCart -> assertTrue(emptyCart.isEmpty()))
                 .subscribe();
     }

@@ -10,13 +10,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import ru.yandex.practicum.mapper.ItemInCartMapper;
 import ru.yandex.practicum.mapper.ItemMapper;
 import ru.yandex.practicum.model.dto.*;
+import ru.yandex.practicum.model.entity.ItemInCart;
 import ru.yandex.practicum.repository.ItemRepository;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -30,19 +31,24 @@ public class ItemService {
     private final ItemMapper itemMapper;
     private final CartService cartService;
     private final ItemInCacheService cacheService;
+    private final ItemInCartService itemInCartService;
+    private final ItemInCartMapper itemInCartMapper;
 
     @Value("${shop.items.row:5}")
     int itemsRowCount;
 
-    public Mono<List<List<ItemDto>>> getItems(String search, String sort, int pageNumber, int pageSize) {
+    public Mono<List<List<ItemDto>>> getItems(String search, String sort, int pageNumber, int pageSize, String login) {
+        log.info("Start getItems: login={}", login);
         AtomicInteger index = new AtomicInteger();
         return cacheService.getItems(search, sort, pageNumber, pageSize)
                 .flatMapIterable(itemsList -> itemsList)
-                .flatMap(itemDto -> cartService.getItemCountInCart(itemDto.getId())
-                        .zipWith(Mono.just(itemDto), (count, item) -> {
-                            itemDto.setCount(count);
-                            return itemDto;
+                .log()
+                .flatMap(itemDto -> itemInCartService.getCountByItemIdAndLogin(itemDto.getId(), login).defaultIfEmpty(0)
+                        .zipWith(Mono.just(itemDto), (countInLoginCart, item) -> {
+                            item.setCount(countInLoginCart);
+                            return item;
                         }))
+                .log()
                 .collectList()
                 .map(itemsListWithCount -> itemsListWithCount.stream()
                         .collect(Collectors.groupingBy(it -> index.getAndIncrement() / itemsRowCount))
@@ -66,9 +72,9 @@ public class ItemService {
                         });
     }
 
-    public Mono<ItemDto> getItemDtoById(Long id) {
+    public Mono<ItemDto> getItemDtoById(Long id, String login) {
         return cacheService.getItemDtoById(id)
-                .zipWith(cartService.getItemCountInCart(id), (itemDto, count) -> {
+                .zipWith(itemInCartService.getCountByItemIdAndLogin(id, login).defaultIfEmpty(0), (itemDto, count) -> {
                     itemDto.setCount(count);
                     return itemDto;
         });
@@ -108,12 +114,19 @@ public class ItemService {
         return cacheService.getImage(id);
     }
 
-    public Mono<ItemDto> actionWithItemInCart(Long itemId, String action) {
-        log.debug("Start actionWithItemInCart: itemId={}, action={}", itemId, action);
-        Mono<Map<Long, ItemDto>> itemsInCart = cartService.getItemsInCart().log();
-        return itemsInCart.flatMap(itemsInCartNow ->
-                        itemsInCartNow.containsKey(itemId) ? Mono.just(itemsInCartNow.get(itemId)) : getItemDtoById(itemId))
-                .doOnNext(itemDto -> cartService.refresh(itemDto, action))
+    public Mono<ItemDto> actionWithItemInCart(Long itemId, String action, String login) {
+        log.info("Start actionWithItemInCart: itemId={}, action={}", itemId, action);
+        return itemInCartService.getByItemIdAndLogin(itemId, login)
+                .defaultIfEmpty(new ItemInCart())
+                .log()
+                .zipWith(getItemDtoById(itemId, login), (itemInCart, item) -> {
+                    ItemInCart actualItemDto = itemInCart;
+                    if (itemInCart.getCount() == 0) actualItemDto = itemInCartMapper.toItemInCart(item);
+                    actualItemDto.setLogin(login);
+                    return actualItemDto;
+                })
+                .log()
+                .flatMap(itemInCart -> cartService.refresh(itemInCart, action, login))
                 .log();
     }
 }

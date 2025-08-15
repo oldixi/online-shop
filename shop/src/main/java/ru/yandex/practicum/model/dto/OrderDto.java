@@ -14,6 +14,7 @@ public class OrderDto implements Comparable<OrderDto> {
     private Long id;
     private List<ItemDto> items;
     private BigDecimal totalSum;
+    private String login;
 
     @Override
     public int compareTo(OrderDto o) {

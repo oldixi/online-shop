@@ -5,44 +5,58 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import ru.yandex.practicum.enumiration.ECartAction;
+import ru.yandex.practicum.mapper.ItemInCartMapper;
 import ru.yandex.practicum.model.dto.CartDto;
 import ru.yandex.practicum.model.dto.ItemDto;
-import ru.yandex.practicum.repository.CartRepositoryImpl;
+import ru.yandex.practicum.model.entity.ItemInCart;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class CartService {
-    private final CartRepositoryImpl cartRepository;
+    private final ItemInCartService itemInCartService;
+    private final ItemInCartMapper itemInCartMapper;
 
-    public Mono<Void> clearCart() {
-        return cartRepository.delete();
+    public Mono<Void> clearCart(String login) {
+        log.info("Start clearCart: login={}", login);
+        return itemInCartService.deleteByLogin(login);
     }
 
-    public Mono<CartDto> getCart() {
-        return cartRepository.findAll().log();
+    public Mono<CartDto> getCart(String login) {
+        log.info("Start getCart: login={}", login);
+        return itemInCartService.getByLogin(login)
+                .log()
+                .map(itemsInCartList -> CartDto.builder()
+                        .items(itemsInCartList.stream()
+                                .map(itemInCartMapper::toItemInCartDto)
+                                .map(itemInCartMapper::toItemDto)
+                                .collect(Collectors.toMap(ItemDto::getId, item -> item)))
+                        .empty(itemsInCartList.isEmpty())
+                        .login(login)
+                        .total(itemsInCartList.stream()
+                                .map(item -> item.getPrice().multiply(BigDecimal.valueOf(item.getCount())))
+                                .reduce(BigDecimal.ZERO,BigDecimal::add))
+                        .build());
     }
 
-    public Mono<Integer> getItemCountInCart(Long itemId) {
-        log.debug("Start getItemCountInCart: itemId={}", itemId);
-        return cartRepository.getItemCountInCart(itemId).log();
+    public Mono<Integer> getItemCountInCart(Long itemId, String login) {
+        log.info("Start getItemCountInCart: itemId={}", itemId);
+        return login == null || login.isBlank() ? Mono.just(0) :
+                itemInCartService.getByItemIdAndLogin(itemId, login).log()
+                        .map(ItemInCart::getCount).log();
     }
 
-    public Mono<BigDecimal> getTotalPrice() {
-        log.debug("Start getTotalPrice");
-        return cartRepository.getTotalPrice().log();
+    public Mono<Map<Long, ItemDto>> getItemsInCart(String login) {
+        log.info("Start getItemsInCart");
+        return getCart(login).map(CartDto::getItems);
     }
 
-    public Mono<Map<Long, ItemDto>> getItemsInCart() {
-        log.debug("Start getItemsInCart");
-        return cartRepository.getItemsInCart().log();
-    }
-
-    public Mono<CartDto> refresh(ItemDto itemDto, String action) {
-        log.debug("Start refresh: itemDto={}, action={}", itemDto, action);
+    public Mono<ItemDto> refresh(ItemInCart itemDto, String action, String login) {
+        log.info("Start refresh: itemDto={}, action={}, login={}", itemDto, action, login);
         switch (ECartAction.valueOf(action.toUpperCase())) {
             case PLUS -> itemDto.setCount(itemDto.getCount() + 1);
             case MINUS -> {
@@ -50,7 +64,15 @@ public class CartService {
             }
             case DELETE -> itemDto.setCount(0);
         }
-        if (itemDto.getCount() == 0) return cartRepository.removeItemFromCart(itemDto);
-        return cartRepository.changeItemCountInCart(itemDto, action);
+        if (itemDto.getCount() == 0)
+            return itemInCartService.removeItemFromCart(itemDto.getItemId(), login)
+                    .then(Mono.defer(() -> Mono.just(itemDto)
+                            .map(itemInCartMapper::toItemDto)
+                            .map(item -> {
+                                item.setCount(0);
+                                return item;
+                            })));
+        return itemInCartService.changeItemCountInCart(itemDto, action, login)
+                .map(itemInCartMapper::toItemDto);
     }
 }

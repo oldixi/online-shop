@@ -14,8 +14,8 @@ import ru.yandex.practicum.model.dto.ItemCreateDto;
 import ru.yandex.practicum.model.dto.ItemDto;
 import ru.yandex.practicum.model.entity.Item;
 import ru.yandex.practicum.repository.ItemRepository;
-import ru.yandex.practicum.service.CartService;
 import ru.yandex.practicum.service.ItemInCacheService;
+import ru.yandex.practicum.service.ItemInCartService;
 import ru.yandex.practicum.service.ItemService;
 
 import java.io.File;
@@ -35,7 +35,7 @@ public class ModelItemTests {
     @Mock
     private ItemMapper itemMapper;
     @Mock
-    private CartService cartService;
+    private ItemInCartService itemInCartService;
     @Mock
     private ItemInCacheService cacheService;
 
@@ -114,13 +114,14 @@ public class ModelItemTests {
                 .title("Товар 1")
                 .description("Товар для mock проверки")
                 .price(BigDecimal.valueOf(10))
+                .imagePath(imagePath + "1L")
                 .build();
 
         when(cacheService.getItemDtoById(any(Long.class))).thenReturn(Mono.just(item));
         when(itemMapper.toDto(any(Item.class))).thenReturn(itemDto);
-        when(cartService.getItemCountInCart(any(Long.class))).thenReturn(Mono.just(0));
-        itemService.getItemDtoById(1L)
-                .doOnNext(itemRes -> assertThat(itemRes).isEqualTo(itemDto))
+        when(itemInCartService.getCountByItemIdAndLogin(any(Long.class), anyString())).thenReturn(Mono.just(0));
+        itemService.getItemDtoById(1L, "user")
+                .doOnNext(itemRes -> assertThat(item).isEqualTo(itemRes))
                 .subscribe();
     }
 }
