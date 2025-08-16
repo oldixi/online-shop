@@ -26,40 +26,6 @@ public class PaymentsService extends DefaultApi {
     @Value("${client.registration.id}")
     private String clientRegistrationId;
 
-    public Mono<BigDecimal> getBalanceNew() {
-        log.info("Start getBalance");
-        return auth2AuthorizedClientManager.authorize(OAuth2AuthorizeRequest
-                        .withClientRegistrationId(clientRegistrationId)
-                        .principal("N/A")
-                        .build())
-                .map(client -> client.getAccessToken().getTokenValue())
-                .flatMap(accessToken -> {
-                    ApiClient apiClient = super.getApiClient();
-                    apiClient.setBasePath(apiPath);
-                    apiClient.addDefaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
-                    super.setApiClient(apiClient);
-                    return super.apiBalanceGet();
-                }).log()
-                .onErrorReturn(BigDecimal.ZERO);
-    }
-
-    public Mono<Boolean> createPaymentNew(BigDecimal amount) {
-        log.info("Start getBalance");
-        return auth2AuthorizedClientManager.authorize(OAuth2AuthorizeRequest
-                        .withClientRegistrationId(clientRegistrationId)
-                        .principal("N/A")
-                        .build())
-                .map(client -> client.getAccessToken().getTokenValue())
-                .flatMap(accessToken -> {
-                    ApiClient apiClient = super.getApiClient();
-                    apiClient.setBasePath(apiPath);
-                    apiClient.addDefaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
-                    super.setApiClient(apiClient);
-                    return super.apiBalancePost(amount);
-                }).log()
-                .onErrorReturn(false);
-    }
-
     public Mono<ApiClient> callApi() {
         log.info("Start getBalance");
         return auth2AuthorizedClientManager.authorize(OAuth2AuthorizeRequest
@@ -79,12 +45,16 @@ public class PaymentsService extends DefaultApi {
     public Mono<BigDecimal> getBalance() {
         return callApi()
                 .map(apiClient -> super.apiBalanceGet())
-                .flatMap(Function.identity());
+                .flatMap(Function.identity())
+                .log()
+                .onErrorReturn(BigDecimal.ZERO);
     }
 
     public Mono<Boolean> createPayment(BigDecimal amount) {
         return callApi()
                 .map(apiClient -> super.apiBalancePost(amount))
-                .flatMap(Function.identity());
+                .flatMap(Function.identity())
+                .log()
+                .onErrorReturn(false);
     }
 }
